@@ -1,0 +1,72 @@
+name: Build S Pen Bridge Beta
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build ${{ matrix.arch }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: x64
+            runner: windows-latest
+            python_arch: x64
+          - arch: arm64
+            runner: windows-11-arm
+            python_arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          architecture: ${{ matrix.python_arch }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt "pyinstaller>=6.22"
+
+      - name: Build one-file application
+        run: pyinstaller --noconfirm --clean --onefile --windowed --name "S Pen Bridge" main.py
+
+      - name: Name architecture-specific artifact
+        shell: pwsh
+        run: Move-Item "dist\S Pen Bridge.exe" "dist\S Pen Bridge-windows-${{ matrix.arch }}.exe"
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: S-Pen-Bridge-${{ matrix.arch }}
+          path: dist/S Pen Bridge-windows-${{ matrix.arch }}.exe
+          if-no-files-found: error
+          retention-days: 3
+
+  release:
+    name: Publish Beta 0.01
+    needs: build
+    runs-on: windows-latest
+    steps:
+      - name: Download architecture builds
+        uses: actions/download-artifact@v4
+        with:
+          pattern: S-Pen-Bridge-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: beta-0.01
+          name: S Pen Bridge Beta 0.01
+          prerelease: true
+          generate_release_notes: true
+          files: release-assets/*.exe

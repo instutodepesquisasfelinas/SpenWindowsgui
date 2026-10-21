@@ -1,0 +1,30 @@
+{
+    "Perfil atual": "Desenho",
+    "perfis": {
+        "Desenho": {
+            "botao_lateral": "Clique direito",
+            "botao_extra": "Desativado"
+        },
+        "Produtividade": {
+            "botao_lateral": "Clique direito",
+            "botao_extra": "Voltar"
+        },
+        "Navegacao": {
+            "botao_lateral": "Clique esquerdo",
+            "botao_extra": "Voltar"
+        }
+    },
+    "calibracao": {
+        "scale": 1.0,
+        "offset_x": 0.0,
+        "offset_y": 0.0,
+        "orientation": "landscape_cw",
+        "x0": 0.0,
+        "x1": 1.0,
+        "y0": 0.0,
+        "y1": 1.0,
+        "swap_axes": false,
+        "invert_x": false,
+        "invert_y": false
+    }
+}
