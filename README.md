@@ -2,6 +2,8 @@
 
 S Pen Bridge is a Windows desktop application that connects a Samsung Galaxy tablet over Android Debug Bridge (ADB), reads S Pen input, and can send pen input to Windows.
 
+**Attribution Notice:** The core implementation regarding the reading and interpretation of S Pen data was directly derived from and inspired by the [SpenWindows](https://github.com/Shinzef/SpenWindows) project.
+
 > **Status:** Prototype in active development. Test device compatibility and the Windows pen experience on your hardware before relying on it.
 
 ## Current features
