@@ -82,9 +82,11 @@ When reporting an issue, include the Windows version, CPU architecture, tablet m
 - `calibration.py` loads and saves local calibration settings.
 - `profiles.json` stores local settings and button profiles.
 
-## Packaging
+## Beta builds
 
-There is no PyInstaller configuration or tested executable release in this project yet. Packaging must include and resolve the required Qt components and an ADB installation; build and test each Windows architecture using a matching Python environment. Do not describe an architecture as supported until its package has been tested.
+The private GitHub Releases page contains **Beta 0.01** builds for Windows x64 and ARM64. The x64 executable was started successfully on the development PC. The ARM64 executable was compiled on a native Windows ARM64 runner, but still needs runtime testing on an ARM64 PC.
+
+There is no x86 executable: the current PySide6 dependencies do not publish Windows 32-bit wheels. Packaging uses a native runner for each target architecture; PyInstaller is not a cross-compiler. ADB is not bundled, so install Android SDK Platform-Tools and make `adb.exe` available on `PATH`.
 
 ## License and affiliation
 
