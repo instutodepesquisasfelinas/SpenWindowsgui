@@ -27,9 +27,10 @@ from workers import FunctionWorker
 
 class ConnectionPage(QWidget):
     pen_state_changed = Signal(object)
+    pointer_state_changed = Signal(object)
     stream_ended = Signal()
 
-    def __init__(self, calibration=None):
+    def __init__(self, calibration=None, pointer_available=False, pointer_error=None):
         super().__init__()
         self.pool = QThreadPool.globalInstance()
         self.workers = {}
@@ -39,7 +40,9 @@ class ConnectionPage(QWidget):
         self.pen_reader = None
         self.reader_error = False
         self.calibration = normalizar_calibracao(calibration)
+        self.pointer_available = pointer_available
         self._build_ui()
+        self.set_pointer_registration(pointer_available, pointer_error)
         self._consultar_dispositivos()
 
     def _build_ui(self):
@@ -185,6 +188,11 @@ class ConnectionPage(QWidget):
         note.setWordWrap(True)
         layout.addWidget(note)
 
+        self.pointer_status = QLabel()
+        self.pointer_status.setObjectName("status")
+        self.pointer_status.setWordWrap(True)
+        layout.addWidget(self.pointer_status)
+
         scroll.setWidget(content)
         root.addWidget(scroll)
 
@@ -260,6 +268,8 @@ class ConnectionPage(QWidget):
             disponivel = not ocupado
             if control in (self.diagnose_button, self.start_button, self.inject_checkbox):
                 disponivel = disponivel and self.selecionado_estado == "device"
+            if control is self.inject_checkbox:
+                disponivel = disponivel and self.pointer_available
             if control is self.stop_button:
                 disponivel = False
             control.setEnabled(disponivel)
@@ -321,6 +331,7 @@ class ConnectionPage(QWidget):
         )
         reader.stream_ready.connect(self._stream_pronto)
         reader.state_received.connect(self._estado_recebido)
+        reader.pointer_state_received.connect(self.pointer_state_changed)
         reader.error_occurred.connect(self._erro_stream)
         reader.finished.connect(self._stream_finalizado)
         self.pen_reader = reader
@@ -332,6 +343,8 @@ class ConnectionPage(QWidget):
             disponivel = not ativo
             if control in (self.diagnose_button, self.start_button, self.inject_checkbox):
                 disponivel = disponivel and self.selecionado_estado == "device"
+            if control is self.inject_checkbox:
+                disponivel = disponivel and self.pointer_available
             if control is self.stop_button:
                 disponivel = ativo
             control.setEnabled(disponivel)
@@ -388,7 +401,7 @@ class ConnectionPage(QWidget):
         autorizado = self.selecionado_estado == "device"
         self.diagnose_button.setEnabled(autorizado)
         self.start_button.setEnabled(autorizado)
-        self.inject_checkbox.setEnabled(autorizado)
+        self.inject_checkbox.setEnabled(autorizado and self.pointer_available)
         if ":" in self.selecionado_serial:
             self.endpoint.setText(self.selecionado_serial)
 
@@ -414,3 +427,19 @@ class ConnectionPage(QWidget):
                 "Calibração atualizada. Pare e reinicie a leitura para aplicar.",
                 True,
             )
+
+    def set_pointer_registration(self, available, error=None):
+        self.pointer_available = available
+        self.pointer_status.setText(
+            "Ponteiro de caneta sintético registrado nesta sessão do app."
+            if available
+            else f"Ponteiro de caneta sintético indisponível: {error or 'API do Windows não disponível.'}"
+        )
+        self.pointer_status.setStyleSheet(
+            "background: #e7f4e8; color: #155724;"
+            if available
+            else "background: #fdeaea; color: #8b1e1e;"
+        )
+        self.inject_checkbox.setEnabled(
+            available and self.selecionado_estado == "device" and self.pen_reader is None
+        )
