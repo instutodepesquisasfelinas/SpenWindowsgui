@@ -11,10 +11,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from button_mapping import carregar_mapeamento_atual
 from calibration import carregar_calibracao
+from ui.button_mapping_page import ButtonMappingPage
 from ui.calibration_page import CalibrationPage
 from ui.connection_page import ConnectionPage
 from ui.pen_cursor import PenCursor
+from windows_pen import WindowsPenError, WindowsPenInjector
 
 
 class MainWindow(QMainWindow):
@@ -50,9 +53,9 @@ class MainWindow(QMainWindow):
         self.calibration_button.clicked.connect(lambda: self._show_page(1))
         sidebar_layout.addWidget(self.calibration_button)
 
-        mapping_button = QPushButton("Mapeamento (pendente)")
-        mapping_button.setEnabled(False)
-        sidebar_layout.addWidget(mapping_button)
+        self.mapping_button = QPushButton("Mapeamento dos botões")
+        self.mapping_button.clicked.connect(lambda: self._show_page(2))
+        sidebar_layout.addWidget(self.mapping_button)
         sidebar_layout.addStretch()
 
         version = QLabel("Eventos ao vivo · Windows Ink")
@@ -61,22 +64,42 @@ class MainWindow(QMainWindow):
 
         layout.addWidget(sidebar)
         calibration = carregar_calibracao()
+        self.pen_injector = None
+        pointer_error = None
+        try:
+            self.pen_injector = WindowsPenInjector(
+                calibration=calibration,
+                button_mapping=carregar_mapeamento_atual(),
+            )
+        except WindowsPenError as erro:
+            pointer_error = str(erro)
+
         self.pages = QStackedWidget()
-        self.connection_page = ConnectionPage(calibration)
-        self.calibration_page = CalibrationPage(calibration)
-        self.calibration_page.calibration_saved.connect(
-            self.connection_page.set_calibration
+        self.connection_page = ConnectionPage(
+            calibration,
+            pointer_available=self.pen_injector is not None,
+            pointer_error=pointer_error,
         )
+        self.calibration_page = CalibrationPage(calibration)
+        self.mapping_page = ButtonMappingPage()
+        self.calibration_page.calibration_saved.connect(self._set_calibration)
+        self.mapping_page.mapping_saved.connect(self._set_button_mapping)
         self.connection_page.pen_state_changed.connect(self._update_pen_cursor)
+        self.connection_page.pointer_state_changed.connect(self._inject_windows_pen)
         self.connection_page.pen_state_changed.connect(
             self.calibration_page.update_pen_state
         )
         self.connection_page.stream_ended.connect(self._hide_pen_cursor)
         self.pages.addWidget(self.connection_page)
         self.pages.addWidget(self.calibration_page)
+        self.pages.addWidget(self.mapping_page)
         layout.addWidget(self.pages, 1)
         self.pen_cursor = PenCursor()
-        self._navigation_buttons = (self.connection_button, self.calibration_button)
+        self._navigation_buttons = (
+            self.connection_button,
+            self.calibration_button,
+            self.mapping_button,
+        )
         self.setCentralWidget(central)
         self.setStyleSheet(
             "QMainWindow, QWidget {"
@@ -119,6 +142,26 @@ class MainWindow(QMainWindow):
         else:
             self.pen_cursor.hide()
 
+    def _inject_windows_pen(self, state):
+        if not self.connection_page.inject_checkbox.isChecked() or not self.pen_injector:
+            return
+        try:
+            self.pen_injector.inject(state)
+        except WindowsPenError as erro:
+            self.connection_page.set_pointer_registration(False, str(erro))
+            self.pen_injector.close()
+            self.pen_injector = None
+            self.pen_cursor.hide()
+
+    def _set_calibration(self, calibration):
+        self.connection_page.set_calibration(calibration)
+        if self.pen_injector:
+            self.pen_injector.set_calibration(calibration)
+
+    def _set_button_mapping(self, mapping):
+        if self.pen_injector:
+            self.pen_injector.set_button_mapping(mapping)
+
     def _hide_pen_cursor(self):
         self.pen_cursor.hide()
 
@@ -128,4 +171,7 @@ class MainWindow(QMainWindow):
             QTimer.singleShot(100, self.close)
             return
         self.pen_cursor.hide()
+        if self.pen_injector:
+            self.pen_injector.close()
+            self.pen_injector = None
         super().closeEvent(event)
